@@ -99,9 +99,9 @@ var JSE_Tracker = (function(global) {
         if(!error.fileName){
             var originalUrl = /(.+\.js)/.exec(stackArr[1])[1];
             if( originalUrl.indexOf('http') > -1){
-                originalUrl = /(http.+)$/.exec(originalUrl)[1]; //绝对路径
+                originalUrl = /(http.+)$/.exec(originalUrl)[1]; // AbsolutePath
             }else{
-                originalUrl = /^(.+)[^\/]*$/.exec(location.href)[1] + '/' + originalUrl; //相对路径
+                originalUrl = /^(.+)[^\/]*$/.exec(location.href)[1] + '/' + originalUrl; // RelativePath
             }
             errorObj.clientErrorUrl = originalUrl;
         }else{
