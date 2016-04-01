@@ -1,40 +1,26 @@
 /*!
- * @module error-report
+ * @module jse-tracker
  * @author lixianfeng
+ * @License MIT 
  * @date 2016/3/28
- */
-/*!
- * @module error_monitor
- * @author lixianfeng
- * @date @DATE 2016/3/21
  */
 var JSE_Tracker = (function(global) {
     if (global.JSE_Tracker) return global.JSE_Tracker;
 
     var _config = {
-        // "client": "pc", 
-        // "58clientPdType": "post",
-        // submit:function(errorStr){},//配置则生效
-        random:1,  //抽样上报 0 ~ 1 ,1为百分百上报
-        ignore:[]//["ReferenceError: B is not defined at http://lxf.com/bj-report/app.js"]
+        // userId: !!window.userid?userid:"0",                  // userid
+        // responsibleFor: "lixianfeng912@gmail.com",           // responsible developer's e-mail(receive alarm mail)
+        // submit:function(errorStr){console.log(errorStr)},    // subimit'handler for errorStr
+        random:1,                                               // the rate of random sample, 1 means submit every error 
+        ignore:[]                                               // ["ReferenceError: B is not defined at http://lxf.com/app.js"]
     };
 
-    var _getUAtype = function() { 
-        if($.browser.chrome)return 'chrome';
-        if($.browser.msie) return 'IE';
-        if($.browser.mozilla) return 'mozilla';
-        if($.browser.safari) return 'safari'; 
-        if($.browser.opera)  return 'opera';
-        return 'unknown';
+    var _getUAtype = function() {
+        return $.browser.chrome ? 'chrome' : ( ($.browser.msie) ? 'IE' : ( ($.browser.mozilla) ? 'firefox' : ( ($.browser.safari) ? 'safari' : ( ($.browser.opera) ? 'opera' : 'unknown') )));
     };
 
     var _errorMsg = {
-        "from": "58clientErrorReport",
-        "client": "pc",
-        "58clientPdType": "post",
         "clientErrorLocation": location.href || "unknown",
-        "resultState": "failed",
-        // "userId": !!window.userid?userid:"0",
         "browserType": _getUAtype() + '|' + $.browser.version + '|' + window.navigator.platform + '|' +(navigator.userAgent || "unknown"),
         "clientErrorMsg": "unknown",
         "clientErrorUrl": "unknown",
@@ -54,7 +40,6 @@ var JSE_Tracker = (function(global) {
     }
     
     if(typeof String.prototype.trim === 'undefined'){
-        // trim
         String.prototype.trim = function() {
             return this.replace(/(^\s*)|(\s*$)/g,"");
         };
@@ -81,7 +66,7 @@ var JSE_Tracker = (function(global) {
     };
 
     // simple clone 
-    var _simpleExtend = function(targetObj) {
+    var _simpleClone = function(targetObj) {
         var key, newObj = {};
         for (key in targetObj) {
             newObj[key] = targetObj[key];
@@ -94,14 +79,13 @@ var JSE_Tracker = (function(global) {
         return currentDate.toLocaleDateString() + '——' + currentDate.toLocaleTimeString();
     };
 
-    //获取初始化错误信息对象
     var _getInitErrorObj = function() {
-        var errorOption = _simpleExtend(_errorMsg);
+        var errorOption = _simpleClone(_errorMsg);
         errorOption.clientErrorDate = _getTimeStr();
         return errorOption;
     };
 
-    // 从try-catch中获取错误信息数据
+    // get error info from try-catch obj
     var _processTryError = function(error){
         var errorObj = _getInitErrorObj(),
             errorStack = error.stack,
@@ -109,10 +93,9 @@ var JSE_Tracker = (function(global) {
             stackArr = errorStack.split(splitAt);
 
         errorObj.clientErrorStack = errorStack;
-        //获取文件错误信息
         errorObj.clientErrorMsg = !!error.message?error.message:stackArr[0].trim();
 
-        //获取文件名
+        //file name
         if(!error.fileName){
             var originalUrl = /(.+\.js)/.exec(stackArr[1])[1];
             if( originalUrl.indexOf('http') > -1){
@@ -125,7 +108,7 @@ var JSE_Tracker = (function(global) {
             errorObj.clientErrorUrl = error.fileName;
         }
 
-        //获取行数列数s
+        //row and clo
         var lineAndColStr = /\.js:([^\)]+)/.exec(stackArr[1])[1];
         var lineAndColArr = lineAndColStr.split(':');
 
@@ -146,7 +129,6 @@ var JSE_Tracker = (function(global) {
             errorStr += encodeURIComponent(index) + '=' + encodeURIComponent(errorObj[index]) + '&';
         }
         return errorStr.trim().substring(0,errorStr.length-1);
-        // return $.param(errorObj)
     };
 
     var _toSubmitList = [];
@@ -156,6 +138,7 @@ var JSE_Tracker = (function(global) {
             _config.submit(errorStr);
             return;
         }
+        //default submit handler
         try{
             if(window.clickLog){
                 window.clickLog(errorStr);
@@ -187,15 +170,15 @@ var JSE_Tracker = (function(global) {
     };
 
     var _currentErrorMsg = null;
-    // var _dontHandleError = false; //告诉onerror不要处理错误
 
-    //try-catch错误处理
+    //try-catch handler
     var _catchHandler = function(e) {
-        // IE10以下catch error对象没有stack，但是抛出异常让window.error捕获能拿到文件名和行数
         if(e.stack){
             var errorObj = _processTryError(e);
             _send(errorObj);
-            //显示错误信息
+            // errorTips for console
+            // throw error would caused executing try-catch twice in the Modern browser includes IE10 sometimes(their catch-error-obj includes stack info)
+            // so show the error tips for developers by console.error
             var errorTip = e.stack? e.stack:e.message;
             if(window.console){
                 if(console.error){
@@ -205,8 +188,10 @@ var JSE_Tracker = (function(global) {
                 }
             }
         }else{
-            _currentErrorMsg = e.message.toString();
-            throw e;
+            // catch-error-obj just includes message in <IE10, 
+            // so throw it to window.error to get filename&row 
+            _currentErrorMsg = e.message.toString();                // record e.message for window.onerror                                         
+            throw e;                                                // trigger onerror handler and show error in console
         }
     };
 
@@ -307,23 +292,17 @@ var JSE_Tracker = (function(global) {
             _currentErrorMsg = null;
             
             if (!!error && !!error.stack){
-                //如果浏览器有堆栈信息
-                //直接使用
                 stack = error.stack.toString();
             }else if (!!arguments.callee){
-                //尝试通过callee拿堆栈信息
+                //get degraded stack info by callee
                 var ext = [];
-                var f = arguments.callee.caller, c = 10;
-                //这里只拿三层堆栈信息
+                var f = arguments.callee.caller, c = 3;
                 var count = 1;
                 while (f && (--c>0)) {
-                    // console.log(count);
                     count++;
-                    // console.log(f);
                     ext.push(f.toString());
-                    // console.log(f.caller);
                     if (f  === f.caller) {
-                        break;//如果有环
+                        break;//avoiding infinite loops
                     }
                     f = f.caller;
                 }
@@ -336,7 +315,6 @@ var JSE_Tracker = (function(global) {
         };
     };
 
-    //tryCatcher功能
     var tryCatcher = JsMonitor.tryCatchMonitor = {};
 
     /**
@@ -352,6 +330,31 @@ var JSE_Tracker = (function(global) {
             global.define = wrapArgs(_define);
             _merge(global.define, _define);
         }
+
+        if (root.seajs && _define) {
+            root.define = function() {
+                var arg, args = [];
+                for (var i = 0, l = arguments.length; i < l; i++) {
+                    arg = arguments[i];
+                    if (_isFunction(arg)) {
+                        arg = wrap(arg);
+                        //seajs should use toString parse dependencies , so rewrite it
+                        arg.toString = (function(orgArg) {
+                            return function() {
+                                return orgArg.toString();
+                            };
+                        }(arguments[i]));
+                    }
+                    args.push(arg);
+                }
+                return _define.apply(this, args);
+            };
+
+            root.seajs.use = wrapArgs(root.seajs.use);
+
+            _merge(root.define, _define);
+        }
+
         return tryCatcher;
     };
 
@@ -367,7 +370,21 @@ var JSE_Tracker = (function(global) {
         }
 
         var _add, _remove;
-        if(window.jQuery){
+        if(_$.zepto){
+            _add = _$.fn.on, _remove = _$.fn.off;
+
+            _$.fn.on  = makeArgsTry(_add);
+            _$.fn.off  = function() {
+                var arg, args = [];
+                for (var i = 0, l = arguments.length; i < l; i++) {
+                    arg = arguments[i];
+                    _isFunction(arg) && arg.tryWrap && (arg = arg.tryWrap);
+                    args.push(arg);
+                }
+                return _remove.apply(this, args);
+            };
+
+        }else if(window.jQuery){
             _add = _$.event.add, _remove = _$.event.remove;
 
             _$.event.add = makeArgsTry(_add);
@@ -438,9 +455,9 @@ var JSE_Tracker = (function(global) {
                 _config[key] = config[key];
             }
         }
-        //只允许配置这两项信息
-        _config['client'] && (_errorMsg['client'] = _errorMsg['client']);
-        _config['58clientPdType'] && (_errorMsg['58clientPdType'] = _config['58clientPdType']);
+        //only the two configurations are useful
+        _config['userid'] && (_errorMsg['userid'] = _config['userid']);
+        _config['responsibleFor'] && (_errorMsg['responsibleFor'] = _config['responsibleFor']);
         
         JsMonitor.onerrorMonitor();
         tryCatcher.monitorAll();
@@ -449,9 +466,9 @@ var JSE_Tracker = (function(global) {
     var report = {
         init: JsMonitor.init,
 
-        monitorCustom: tryCatcher.monitorCustom, //try-catch监听器   
+        monitorCustom: tryCatcher.monitorCustom, //wramp custom function by try-catch   
         
-        catcherHandler: _catchHandler,  //处理try-catch捕获的错误并提交
+        catcherHandler: _catchHandler,           //process try-catch error-obj
         
         __onerror__: global.onerror
     };
