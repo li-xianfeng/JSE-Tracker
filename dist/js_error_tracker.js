@@ -284,7 +284,7 @@ var JSE_Tracker = (function(global) {
 
             var stack = '', errorObj = _getInitErrorObj();
 
-            errorObj.clientErrorUrl = url ? url : localtion.href;
+            errorObj.clientErrorUrl = url ? url : location.href;
             errorObj.clientErrorLine = line;
             errorObj.clientErrorColum = column || (window.event && window.event.errorCharacter) || -1;
 
@@ -331,8 +331,8 @@ var JSE_Tracker = (function(global) {
             _merge(global.define, _define);
         }
 
-        if (root.seajs && _define) {
-            root.define = function() {
+        if (global.seajs && _define) {
+            global.define = function() {
                 var arg, args = [];
                 for (var i = 0, l = arguments.length; i < l; i++) {
                     arg = arguments[i];
@@ -350,9 +350,9 @@ var JSE_Tracker = (function(global) {
                 return _define.apply(this, args);
             };
 
-            root.seajs.use = wrapArgs(root.seajs.use);
+            global.seajs.use = wrapArgs(global.seajs.use);
 
-            _merge(root.define, _define);
+            _merge(global.define, _define);
         }
 
         return tryCatcher;
