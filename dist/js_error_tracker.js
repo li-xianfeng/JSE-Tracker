@@ -30,14 +30,16 @@ var JSE_Tracker = (function(global) {
         "clientErrorStack": 'unknown'
     };
 
-    if(typeof Array.prototype.indexOf === 'undefined'){
-        Array.prototype.indexOf = function(child) {
-            for(var index in this){
-                if(this[index] === child)return index;
-            }
-            return -1;
-        };
-    }
+    // 注意给数组定义indexOf方法不要放在原型上
+    // 采用for in 遍历数组会遍历到indexOf方法，容易出错
+    // if(typeof Array.prototype.indexOf === 'undefined'){
+    //     Array.prototype.indexOf = function(child) {
+    //         for(var index in this){
+    //             if(this[index] === child)return index;
+    //         }
+    //         return -1;
+    //     };
+    // }
     
     if(typeof String.prototype.trim === 'undefined'){
         String.prototype.trim = function() {
@@ -45,6 +47,12 @@ var JSE_Tracker = (function(global) {
         };
     }
     
+    var _indexOf = function(parent, child) {
+        for(var index in parent){
+            if(parent[index] === child)return index;
+        }
+        return -1;
+    };
 
     var _isOBJ = function(obj) {
         var type = typeof obj;
@@ -89,7 +97,7 @@ var JSE_Tracker = (function(global) {
     var _processTryError = function(error){
         var errorObj = _getInitErrorObj(),
             errorStack = error.stack,
-            splitAt = errorStack.indexOf('@') > -1?'@':'at',
+            splitAt = _indexOf(errorStack, '@') > -1?'@':'at',
             stackArr = errorStack.split(splitAt);
 
         errorObj.clientErrorStack = errorStack;
@@ -98,7 +106,7 @@ var JSE_Tracker = (function(global) {
         //file name
         if(!error.fileName){
             var originalUrl = /(.+\.js)/.exec(stackArr[1])[1];
-            if( originalUrl.indexOf('http') > -1){
+            if( _indexOf(originalUrl, 'http') > -1){
                 originalUrl = /(http.+)$/.exec(originalUrl)[1]; // AbsolutePath
             }else{
                 originalUrl = /^(.+)[^\/]*$/.exec(location.href)[1] + '/' + originalUrl; // RelativePath
@@ -165,7 +173,7 @@ var JSE_Tracker = (function(global) {
     var _send = function(errorObj) {
         var errorMsg = errorObj.clientErrorMsg + ' at ' + errorObj.clientErrorUrl;
         //ignore and sampling
-        if( _config.ignore.indexOf(errorMsg) > -1 || Math.random() >= _config.random )return;
+        if( _indexOf(_config.ignore, errorMsg) > -1 || Math.random() >= _config.random )return;
         _submit(_errorToString(errorObj));
     };
 
